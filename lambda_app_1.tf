@@ -17,7 +17,7 @@ variable "name"{
 
 ##LOCALS
 locals {
-  app_1_name = "${var.name}-${random_string.random.result}-products"
+  app_1_name = "${var.name}-${random_string.random.result}"
 
   #LAMBDA
   ##aws_lambda_function
