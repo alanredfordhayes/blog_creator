@@ -67,15 +67,6 @@ resource "aws_lambda_function" "app_1" {
   s3_key            = aws_s3_object.app_1.key
   source_code_hash  = data.archive_file.app_1.output_base64sha256
   role              = aws_iam_role.app_1.arn
-  environment {
-    variables = {
-      TableName1 = local.aws_dynamodb_table_app_1_db_1
-      TableName2 = local.aws_dynamodb_table_app_1_db_2
-      TableName3 = local.aws_dynamodb_table_app_1_db_3
-      TableName4 = local.aws_dynamodb_table_app_1_db_4
-      TableName5 = local.aws_dynamodb_table_app_1_db_5
-    }
-  }
 }
 
 resource "aws_lambda_permission" "app_1" {
