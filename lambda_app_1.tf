@@ -18,6 +18,7 @@ variable "name"{
 ##LOCALS
 locals {
   app_1_name = "${var.name}-${random_string.random.result}-products"
+
   #LAMBDA
   ##aws_lambda_function
   aws_lambda_function_app_1_function_name = "${local.app_1_name}"
@@ -27,6 +28,7 @@ locals {
   aws_lambda_permission_app_1_statement_id  = "AllowExecutionFromAPIGateway"
   aws_lambda_permission_app_1_action        = "lambda:InvokeFunction"
   aws_lambda_permission_app1_principal      = "apigateway.amazonaws.com"
+
   #IAM
   ##aws_iam_role
   aws_iam_role_app_1_name = "${local.app_1_name}"
@@ -36,20 +38,22 @@ locals {
   aws_iam_policy_app_1_name = "${local.app_1_name}"
   aws_iam_policy_app1_path  = "/"
   aws_iam_policy_app_1_description = "${local.app_1_name}"
+  
   #Cloudwatch
   ##aws_cloudwatch_log
   aws_cloudwatch_log_app_1_group_name = "${local.app_1_name}"
-  #Dynamodb
-  ##aws_dynamodb_table
-  aws_dynamodb_table_app_1_db_1 = "${local.app_1_name}-main"
-  aws_dynamodb_table_app_1_db_2 = "${local.app_1_name}-variants"
-  aws_dynamodb_table_app_1_db_3 = "${local.app_1_name}-options"
-  aws_dynamodb_table_app_1_db_4 = "${local.app_1_name}-images"
-  aws_dynamodb_table_app_1_db_5 = "${local.app_1_name}-image"
-  aws_dynamodb_table_app_1_db_main_hashkey = "id"
-  aws_dynamodb_table_app_1_db_main_range_key = "title"
-  aws_dynamodb_table_app_1_db_sup_hashkey = "id"
-  aws_dynamodb_table_app_1_db_sup_range_key = "product_id"
+
+  # API GATEWAY
+  aws_api_gateway_rest_api_name = "${local.app_1_name}"
+  aws_api_gateway_method_authorization = "NONE"
+  aws_api_gateway_method_http_method = "ANY"
+  aws_api_gateway_integration_integration_http_method = "POST"
+  aws_api_gateway_integration_type = "AWS_PROXY"
+  aws_api_gateway_stage_stage_name = "dev"
+  aws_api_gateway_rest_api_endpoint_configuration_types = ["REGIONAL"]
+  ### USERNAME CREATION
+  aws_api_gateway_resource_path_part_app_1 = "${local.app_1_name}"
+
 }
 
 ##LAMBDA
@@ -154,4 +158,54 @@ resource "aws_iam_policy_attachment" "app_1" {
 resource "aws_cloudwatch_log_group" "app_1" {
   name = local.aws_cloudwatch_log_app_1_group_name
   retention_in_days = 30
+}
+
+#api gateway
+resource "aws_api_gateway_rest_api" "app_1" {
+  name = local.aws_api_gateway_rest_api_name
+  endpoint_configuration { types = local.aws_api_gateway_rest_api_endpoint_configuration_types }
+}
+
+resource "aws_api_gateway_resource" "app_1" {
+  parent_id   = aws_api_gateway_rest_api.app_1.root_resource_id
+  path_part   = local.aws_api_gateway_resource_path_part_app_1
+  rest_api_id = aws_api_gateway_rest_api.app_1.id
+}
+
+resource "aws_api_gateway_method" "app_1" {
+  authorization = local.aws_api_gateway_method_authorization
+  http_method   = local.aws_api_gateway_method_http_method
+  resource_id   = aws_api_gateway_resource.app_1.id
+  rest_api_id   = aws_api_gateway_rest_api.app_1.id
+}
+
+resource "aws_api_gateway_integration" "app_1" {
+  http_method             = aws_api_gateway_method.app_1.http_method
+  resource_id             = aws_api_gateway_resource.app_1.id
+  rest_api_id             = aws_api_gateway_rest_api.app_1.id
+  integration_http_method = local.aws_api_gateway_integration_integration_http_method
+  type                    = local.aws_api_gateway_integration_type
+  uri                     = aws_lambda_function.app_1.invoke_arn
+}
+
+resource "aws_api_gateway_deployment" "app_1" {
+  rest_api_id = aws_api_gateway_rest_api.app_1.id
+
+  triggers = {
+    redeployment = sha1(jsonencode([
+      aws_api_gateway_resource.app_1.id,
+      aws_api_gateway_method.app_1.id,
+      aws_api_gateway_integration.app_1.id,
+    ]))
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_api_gateway_stage" "app_1" {
+  deployment_id = aws_api_gateway_deployment.app_1.id
+  rest_api_id   = aws_api_gateway_rest_api.app_1.id
+  stage_name    = local.aws_api_gateway_stage_stage_name
 }
